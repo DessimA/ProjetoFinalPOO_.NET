@@ -1,7 +1,11 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.IdentityModel.Tokens;
+using projetoCurso.api.Business.Entities;
 using projetoCurso.api.Filters;
+using projetoCurso.api.Infraestruture.Data;
 using projetoCurso.api.Model;
 using projetoCurso.api.Model.Usuarios;
 using ProjetoCurso.api.Model.Usuarios;
@@ -68,12 +72,37 @@ namespace ProjetoCurso.api.Controllers
             Usuario = usuarioViewModelOutput
             });
 }
-
+        /// <summary>
+        /// Este serviço permite cadastrar um usuário cadastrado não existente
+        /// </summary>
+        /// <param name="registro">View model do registro de login</param>
+        [SwaggerResponse(statusCode: 200, description: "Sucesso ao autenticar", Type = typeof(LoginViewModelInput))]
+        [SwaggerResponse(statusCode: 400, description: "Campos obrigatórios", Type = typeof(ValidaCampoViewModelOutput))]
+        [SwaggerResponse(statusCode: 500, description: "Erro interno", Type = typeof(ErroGenericoViewModel))]
         [HttpPost]
         [Route("registrar")]
         [ValidacaoModelStateCustomizado]
         public IActionResult Registrar(RegistroViewModelInput registroViewModelInput)
         {
+            var optionsBuilder = new DbContextOptionsBuilder<CursoDbContext>();
+            optionsBuilder.UseMySql("Server = localhost; Port = 3306; Database = projetocurso; Uid = root; Pwd = ");
+            CursoDbContext contexto = new CursoDbContext(optionsBuilder.Options);
+
+            var migracoesPendentes = contexto.Database.GetPendingMigrations();
+           
+            if (migracoesPendentes.Count() > 0)
+            {
+                contexto.Database.Migrate();
+            }
+
+            var usuario = new Usuario();
+            usuario.Login = registroViewModelInput.Login;
+            usuario.Senha = registroViewModelInput.Senha;
+            usuario.Email = registroViewModelInput.Email;
+
+            contexto.Usuario.Add(usuario);
+            contexto.SaveChanges();
+
             return Created("", registroViewModelInput);
         }
     }
